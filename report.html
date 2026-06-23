@@ -1,0 +1,314 @@
+const r = $('code summary through ai').first().json;
+const commitData = $('Extract Commit Info').first().json;
+const regexData = $('regex').first().json;
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function listOrEmptyTable(items, renderFn, emptyText) {
+  if (!items || !items.length) {
+    return `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody>
+        <tr>
+          <td style="font-size: 14px; color: #475569; font-style: italic; line-height: 1.5; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(emptyText)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tbody>
+      ${items.map(renderFn).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderBugsTable(bugs) {
+  if (!bugs || !bugs.length) {
+    return `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody>
+        <tr>
+          <td style="font-size: 14px; color: #475569; font-style: italic; line-height: 1.5; font-family: 'Inter', Arial, sans-serif;">No bugs found.</td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+  
+  const rows = bugs.map(b => {
+    const sev = (b.severity || '').toUpperCase();
+    let bg = '#fee2e2', border = '#fca5a5', text = '#991b1b'; // HIGH
+    if (sev === 'MEDIUM') {
+      bg = '#fef3c7'; border = '#fcd34d'; text = '#92400e';
+    } else if (sev === 'LOW') {
+      bg = '#dbeafe'; border = '#bfdbfe'; text = '#1e40af';
+    }
+    
+    return `
+      <tr>
+        <td valign="top" style="padding: 14px 16px; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; width: 80px;">
+          <table cellpadding="0" cellspacing="0" border="0" style="background-color: ${bg}; border: 1px solid ${border}; border-radius: 4px; width: 64px;">
+            <tbody>
+              <tr>
+                <td align="center" style="color: ${text}; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; padding: 2px 4px; line-height: 12px; text-transform: uppercase; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(sev)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+        <td valign="top" style="padding: 14px 16px; font-size: 13px; color: #334155; font-weight: 500; line-height: 1.4; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">
+          ${escapeHtml(b.issue)}
+        </td>
+        <td valign="top" style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; width: 220px;">
+          <table cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+            <tbody>
+              <tr>
+                <td style="font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; font-size: 11px; color: #475569; padding: 4px 8px; line-height: 1.2; white-space: nowrap;">
+                  ${escapeHtml(b.location)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; font-family: 'Inter', Arial, sans-serif;">
+      <thead>
+        <tr style="background-color: #f8fafc;">
+          <th width="80" align="left" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; padding: 12px 16px; border-right: 1px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">Severity</th>
+          <th align="left" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; padding: 12px 16px; border-right: 1px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">Description</th>
+          <th width="220" align="left" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">Location / Signature</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderSecurityTable(findings) {
+  if (!findings || !findings.length) {
+    return `<table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tbody>
+        <tr>
+          <td style="font-size: 14px; color: #475569; font-style: italic; line-height: 1.5; font-family: 'Inter', Arial, sans-serif;">No security findings.</td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+
+  const rows = findings.map(f => {
+    const sev = (f.severity || '').toUpperCase();
+    let bg = '#fee2e2', border = '#fca5a5', text = '#991b1b'; // HIGH
+    if (sev === 'MEDIUM') {
+      bg = '#fef3c7'; border = '#fcd34d'; text = '#92400e';
+    } else if (sev === 'LOW') {
+      bg = '#dbeafe'; border = '#bfdbfe'; text = '#1e40af';
+    }
+
+    return `
+      <tr>
+        <td valign="middle" style="padding: 12px 16px; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; width: 80px;">
+          <table cellpadding="0" cellspacing="0" border="0" style="background-color: ${bg}; border: 1px solid ${border}; border-radius: 4px; width: 64px;">
+            <tbody>
+              <tr>
+                <td align="center" style="color: ${text}; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; padding: 2px 4px; line-height: 12px; text-transform: uppercase; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(sev)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+        <td valign="middle" style="padding: 12px 16px; font-size: 13px; color: #334155; font-weight: 600; line-height: 1.4; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">
+          ${escapeHtml(f.issue)}
+        </td>
+        <td valign="middle" style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0; width: 120px;">
+          <table cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px;">
+            <tbody>
+              <tr>
+                <td style="font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; font-size: 11px; color: #475569; padding: 4px 8px; font-weight: 600; line-height: 1; white-space: nowrap;">
+                  ${escapeHtml(f.location)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden; font-family: 'Inter', Arial, sans-serif;">
+      <thead>
+        <tr style="background-color: #f8fafc;">
+          <th width="80" align="left" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; padding: 12px 16px; border-right: 1px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">Severity</th>
+          <th align="left" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; padding: 12px 16px; border-right: 1px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">Vulnerability</th>
+          <th width="120" align="left" style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #475569; letter-spacing: 0.05em; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; font-family: 'Inter', Arial, sans-serif;">Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
+
+const improvementsHtml = listOrEmptyTable(r.quality?.improvements, i => `
+  <tr>
+    <td width="16" valign="top" style="font-size: 14px; color: #10b981; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">•</td>
+    <td valign="top" style="font-size: 14px; color: #334155; font-weight: 500; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(i)}</td>
+  </tr>
+`, 'None notable.');
+
+const regressionsHtml = listOrEmptyTable(r.quality?.regressions, i => `
+  <tr>
+    <td width="16" valign="top" style="font-size: 14px; color: #f59e0b; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">•</td>
+    <td valign="top" style="font-size: 14px; color: #334155; font-weight: 500; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(i)}</td>
+  </tr>
+`, 'None notable.');
+
+const bugsHtml = renderBugsTable(r.bugs?.bugs);
+const securityHtml = renderSecurityTable(r.security?.findings);
+
+const regexHtml = listOrEmptyTable(regexData.regexHits, h => `
+  <tr>
+    <td width="16" valign="top" style="font-size: 14px; color: #8b5cf6; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">•</td>
+    <td valign="top" style="font-size: 14px; color: #334155; font-weight: 500; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(h)}</td>
+  </tr>
+`, 'No pattern matches.');
+
+const filesListHtml = (commitData.filesChangedText || '').split('\n').filter(Boolean).map(f => `
+  <tr>
+    <td style="padding-bottom: 6px;">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tbody>
+          <tr>
+            <td style="background-color: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: #0f172a; font-weight: 600; line-height: 1;">
+              ${escapeHtml(f)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </td>
+  </tr>
+`).join('');
+
+const filesChangedTableHtml = filesListHtml 
+  ? `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tbody>${filesListHtml}</tbody></table>`
+  : `<table width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td style="font-size: 14px; color: #475569; font-style: italic; line-height: 1.5; font-family: 'Inter', Arial, sans-serif;">No files changed.</td></tr></tbody></table>`;
+
+const commitsListHtml = listOrEmptyTable(
+  (commitData.summaryText || '').split('\n').filter(Boolean),
+  c => `
+    <tr>
+      <td width="16" valign="top" style="font-size: 14px; color: #64748b; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">▪</td>
+      <td valign="top" style="font-size: 14px; color: #334155; font-weight: 500; line-height: 1.5; padding-bottom: 6px; font-family: 'Inter', Arial, sans-serif;">${escapeHtml(c.replace(/^- /, ''))}</td>
+    </tr>
+  `,
+  'No commits.'
+);
+
+function section(title, contentHtml, accentColor) {
+  return `
+  <tr>
+    <td style="padding: 0 0 24px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-left: 3px solid ${accentColor}; background-color: #f8fafc; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 4px 4px 0; border-collapse: separate;">
+        <tbody>
+          <tr>
+            <td style="padding: 16px 20px;">
+              <h2 style="margin: 0 0 10px 0; font-size: 11px; font-weight: 600; color: ${accentColor === '#64748b' ? '#475569' : accentColor}; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Inter', Arial, sans-serif;">
+                ${title}
+              </h2>
+              ${contentHtml}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </td>
+  </tr>`;
+}
+
+const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Review Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td, h1, h2, p, span, li, a { font-family: Arial, sans-serif !important; }
+  </style>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 24px 0;">
+    <tbody>
+      <tr>
+        <td align="center" style="padding: 16px;">
+          <table width="640" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1); border-collapse: separate; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <tbody>
+              <tr>
+                <td style="background-color: #0f172a; padding: 32px 32px 28px 32px; border-bottom: 1px solid #1e293b;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tbody>
+                      <tr>
+                        <td style="padding: 0;">
+                          <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+                            <tbody>
+                              <tr>
+                                <td style="background-color: #1e293b; border: 1px solid #334155; border-radius: 4px; padding: 4px 10px; color: #94a3b8; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1; font-family: 'Inter', Arial, sans-serif;">
+                                  AI Automation Pipeline
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; font-family: 'Inter', Arial, sans-serif;">
+                            Code Review Report
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #64748b; font-size: 13px; font-weight: 500; font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; letter-spacing: -0.2px; line-height: 1.4;">
+                            ${escapeHtml(commitData.repoName)} <span style="color: #334155; margin: 0 6px;">•</span> pushed by ${escapeHtml(commitData.pusher)}
+                          </p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 32px; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tbody>
+                      ${section('Commits (' + commitData.commitCount + ')', commitsListHtml, '#64748b')}
+                      ${section('Files Changed (' + commitData.filesChangedCount + ')', filesChangedTableHtml, '#64748b')}
+                      ${section('Code Quality &mdash; Improvements', improvementsHtml, '#10b981')}
+                      ${section('Code Quality &mdash; Potential Regressions', regressionsHtml, '#f59e0b')}
+                      ${section('Possible Bugs', bugsHtml, '#f43f5e')}
+                      ${section('Security Findings (AI)', securityHtml, '#f43f5e')}
+                      ${section('Security Findings (Pattern Scan)', regexHtml, '#8b5cf6')}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <table width="640" cellpadding="0" cellspacing="0" border="0" style="margin-top: 20px;">
+            <tbody>
+              <tr>
+                <td align="center" style="color: #64748b; font-size: 11px; line-height: 1.6; text-align: center; font-family: 'Inter', Arial, sans-serif;">
+                  Automated report generated by your AI Automation pipeline.<br>
+                  Findings may be incomplete. Please use this as a starting point for review.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>\`;
+
+return [{ json: { ...commitData, reportHtml: html } }];
